@@ -20,9 +20,9 @@ For detailed copyright information see the file COPYING in
 the root of the distribution archive.
 """
 
-__revision__ = "$LastChangedRevision$"
+__revision__ = 0
 __author__ = 'Ero Carrera'
-__version__ = '1.2.10-%d' % int( __revision__[21:-2] )
+__version__ = '1.2.10-%d' % int( __revision__ )
 __contact__ = 'ero.carrera@gmail.com'
 
 
@@ -31,7 +31,6 @@ import struct
 import time
 import math
 import re
-import exceptions
 import string
 import array
 import mmap
@@ -62,7 +61,7 @@ try:
 except NameError:
     def enumerate(iter):
         L = list(iter)
-        return zip(range(0, len(L)), L)
+        return list(zip(list(range(0, len(L))), L))
 
 def is_bytearray_available():
     if isinstance(__builtins__, dict):
@@ -85,8 +84,8 @@ IMAGE_TE_SIGNATURE              = 0x5A56 # Terse Executables have a 'VZ' signatu
 
 IMAGE_NT_SIGNATURE              = 0x00004550
 IMAGE_NUMBEROF_DIRECTORY_ENTRIES= 16
-IMAGE_ORDINAL_FLAG              = 0x80000000L
-IMAGE_ORDINAL_FLAG64            = 0x8000000000000000L
+IMAGE_ORDINAL_FLAG              = 0x80000000
+IMAGE_ORDINAL_FLAG64            = 0x8000000000000000
 OPTIONAL_HEADER_MAGIC_PE        = 0x10b
 OPTIONAL_HEADER_MAGIC_PE_PLUS   = 0x20b
 
@@ -185,7 +184,7 @@ section_characteristics = [
     ('IMAGE_SCN_MEM_SHARED',                0x10000000),
     ('IMAGE_SCN_MEM_EXECUTE',               0x20000000),
     ('IMAGE_SCN_MEM_READ',                  0x40000000),
-    ('IMAGE_SCN_MEM_WRITE',                 0x80000000L) ]
+    ('IMAGE_SCN_MEM_WRITE',                 0x80000000) ]
 
 SECTION_CHARACTERISTICS = dict([(e[1], e[0]) for e in
     section_characteristics]+section_characteristics)
@@ -539,7 +538,7 @@ SUBLANG = dict(sublang+[(e[1], e[0]) for e in sublang])
 SUBLANG = dict( sublang )
 # Now add all the value->name information, handling duplicates appropriately
 for sublang_name, sublang_value in sublang:
-    if SUBLANG.has_key( sublang_value ):
+    if sublang_value in SUBLANG:
         SUBLANG[ sublang_value ].append( sublang_name )
     else:
         SUBLANG[ sublang_value ] = [ sublang_name ]
@@ -589,7 +588,7 @@ def retrieve_flags(flag_dict, flag_filter):
     matching the filter "flag_filter".
     """
 
-    return [(f[0], f[1]) for f in flag_dict.items() if
+    return [(f[0], f[1]) for f in list(flag_dict.items()) if
             isinstance(f[0], str) and f[0].startswith(flag_filter)]
 
 
@@ -675,7 +674,7 @@ class UnicodeStringWrapperPostProcessor:
 
         length = self.get_pascal_16_length()
 
-        if length == (next_rva_ptr - (self.rva_ptr+2)) / 2:
+        if length == (next_rva_ptr - (self.rva_ptr+2)) // 2:
             self.length = length
             return True
 
@@ -691,7 +690,7 @@ class UnicodeStringWrapperPostProcessor:
 
         try:
             data = self.pe.get_data(self.rva_ptr, 2)
-        except PEFormatError, e:
+        except PEFormatError as e:
             return False
 
         if len(data)<2:
@@ -762,7 +761,7 @@ class Dump:
         The text can be indented with the optional argument 'indent'.
         """
 
-        if isinstance(txt, unicode):
+        if isinstance(txt, str):
             try:
                 txt = str(txt)
             except UnicodeEncodeError:
@@ -907,11 +906,11 @@ class Structure:
             raise PEFormatError('Data length less than expected header length.')
 
 
-        if data.count(chr(0)) == len(data):
+        if data.count(b'\x00') == len(data):
             self.__all_zeroes__ = True
 
         self.__unpacked_data_elms__ = struct.unpack(self.__format__, data)
-        for i in xrange(len(self.__unpacked_data_elms__)):
+        for i in range(len(self.__unpacked_data_elms__)):
             for key in self.__keys__[i]:
                 setattr(self, key, self.__unpacked_data_elms__[i])
 
@@ -920,7 +919,7 @@ class Structure:
 
         new_values = []
 
-        for i in xrange(len(self.__unpacked_data_elms__)):
+        for i in range(len(self.__unpacked_data_elms__)):
 
             for key in self.__keys__[i]:
                 new_val = getattr(self, key)
@@ -956,15 +955,15 @@ class Structure:
             for key in keys:
 
                 val = getattr(self, key)
-                if isinstance(val, int) or isinstance(val, long):
+                if isinstance(val, int) or isinstance(val, int):
                     val_str = '0x%-8X' % (val)
                     if key == 'TimeDateStamp' or key == 'dwTimeStamp':
                         try:
                             val_str += ' [%s UTC]' % time.asctime(time.gmtime(val))
-                        except exceptions.ValueError, e:
+                        except exceptions.ValueError as e:
                             val_str += ' [INVALID TIME]'
                 else:
-                    val_str = ''.join(filter(lambda c:c != '\0', str(val)))
+                    val_str = ''.join([c for c in str(val) if c != '\0'])
 
                 dump.append('0x%-8X 0x%-3X %-30s %s' % (
                     self.__field_offsets__[key] + self.__file_offset__,
@@ -985,14 +984,14 @@ class Structure:
             for key in keys:
 
                 val = getattr(self, key)
-                if isinstance(val, int) or isinstance(val, long):
+                if isinstance(val, int) or isinstance(val, int):
                     if key == 'TimeDateStamp' or key == 'dwTimeStamp':
                         try:
                             val = '0x%-8X [%s UTC]' % (val, time.asctime(time.gmtime(val)))
-                        except exceptions.ValueError, e:
+                        except exceptions.ValueError as e:
                             val = '0x%-8X [INVALID TIME]' % val
                 else:
-                    val = ''.join(filter(lambda c:c != '\0', str(val)))
+                    val = ''.join([c for c in str(val) if c != '\0'])
 
                 dump_dict[key] = {'FileOffset': self.__field_offsets__[key] + self.__file_offset__,
                                   'Offset': self.__field_offsets__[key],
@@ -1176,7 +1175,7 @@ class SectionStructure(Structure):
         occurences = array.array('L', [0]*256)
 
         for x in data:
-            occurences[ord(x)] += 1
+            occurences[ord(chr(x))] += 1
 
         entropy = 0
         for x in occurences:
@@ -1193,7 +1192,7 @@ class DataContainer(object):
 
     def __init__(self, **args):
         bare_setattr = super(DataContainer, self).__setattr__
-        for key, value in args.items():
+        for key, value in list(args.items()):
             bare_setattr(key, value)
 
 
@@ -1440,7 +1439,7 @@ class BoundImportRefData(DataContainer):
 #
 # The filename length is not checked because the DLLs filename
 # can be longer that the 8.3
-allowed_filename = string.lowercase + string.uppercase + string.digits + "!#$%&'()-@^_`{}~+,.;=[]" + ''.join( [chr(i) for i in range(128, 256)] )
+allowed_filename = string.ascii_lowercase + string.ascii_uppercase + string.digits + "!#$%&'()-@^_`{}~+,.;=[]" + ''.join( [chr(i) for i in range(128, 256)] )
 def is_valid_dos_filename(s):
     if s is None or not isinstance(s, str):
         return False
@@ -1455,7 +1454,7 @@ def is_valid_dos_filename(s):
 # function names. If the symbol's characters don't fall within this charset
 # we will assume the name is invalid
 #
-allowed_function_name = string.lowercase + string.uppercase + string.digits + '_?@$()'
+allowed_function_name = string.ascii_lowercase + string.ascii_uppercase + string.digits + '_?@$()'
 def is_valid_function_name(s):
     if s is None or not isinstance(s, str):
         return False
@@ -1774,7 +1773,7 @@ class PE:
 
         try:
             structure.__unpack__(data)
-        except PEFormatError, err:
+        except PEFormatError as err:
             self.__warnings.append(
                 'Corrupt header "%s" at file offset %d. Exception: %s' % (
                     format[0], file_offset, str(err))  )
@@ -1798,7 +1797,7 @@ class PE:
                 raise PEFormatError('The file is empty')
             fd = None
             try:
-                fd = file(fname, 'rb')
+                fd = open(fname, 'rb')
                 self.fileno = fd.fileno()
                 if hasattr(mmap, 'MAP_PRIVATE'):
                     # Unix
@@ -1807,7 +1806,7 @@ class PE:
                     # Windows
                     self.__data__ = mmap.mmap(self.fileno, 0, access=mmap.ACCESS_READ)
                 self.__from_file = True
-            except IOError, excp:
+            except IOError as excp:
                 exception_msg = str(excp)
                 if exception_msg:
                     exception_msg = ': %s' % exception_msg
@@ -1998,7 +1997,7 @@ class PE:
                 self.OPTIONAL_HEADER.NumberOfRvaAndSizes )
 
         MAX_ASSUMED_VALID_NUMBER_OF_RVA_AND_SIZES = 0x100
-        for i in xrange(int(0x7fffffffL & self.OPTIONAL_HEADER.NumberOfRvaAndSizes)):
+        for i in range(int(0x7fffffff & self.OPTIONAL_HEADER.NumberOfRvaAndSizes)):
 
             if len(self.__data__) - offset == 0:
                 break
@@ -2141,7 +2140,7 @@ class PE:
         result ["values"] = headervalues
 
         data = data[4:]
-        for i in xrange(len(data) / 2):
+        for i in range(len(data) // 2):
 
             # Stop until the Rich footer signature is found
             #
@@ -2179,7 +2178,7 @@ class PE:
         """
 
         for warning in self.__warnings:
-            print '>', warning
+            print('>', warning)
 
 
     def full_load(self):
@@ -2228,7 +2227,7 @@ class PE:
                 for entry in self.FileInfo:
                     if hasattr(entry, 'StringTable'):
                         for st_entry in entry.StringTable:
-                            for key, entry in st_entry.entries.items():
+                            for key, entry in list(st_entry.entries.items()):
 
                                 offsets = st_entry.entries_offsets[key]
                                 lengths = st_entry.entries_lengths[key]
@@ -2279,7 +2278,7 @@ class PE:
                                         remainder = lengths[1] - len(entry)
                                         start = offsets[1] + len(entry)*2
                                         end = offsets[1] + lengths[1]*2
-                                        file_data[start:end] = [u'\0'] * remainder*2
+                                        file_data[start:end] = ['\0'] * remainder*2
 
         if is_bytearray_available():
             new_file_data = ''.join( chr(c) for c in file_data )
@@ -2287,7 +2286,7 @@ class PE:
             new_file_data = ''.join( [ chr(ord(c)) for c in file_data] )
 
         if filename:
-            f = file(filename, 'wb+')
+            f = open(filename, 'wb+')
             f.write(new_file_data)
             f.close()
         else:
@@ -2311,7 +2310,7 @@ class PE:
 
         self.sections = []
         MAX_SIMULTANEOUS_ERRORS = 3
-        for i in xrange(self.FILE_HEADER.NumberOfSections):
+        for i in range(self.FILE_HEADER.NumberOfSections):
             simultaneous_errors = 0
             section = SectionStructure( self.__IMAGE_SECTION_HEADER_format__, pe=self )
             if not section:
@@ -2320,7 +2319,7 @@ class PE:
             section.set_file_offset(section_offset)
             section_data = self.__data__[section_offset : section_offset + section.sizeof()]
             # Check if the section is all nulls and stop if so.
-            if section_data.count('\0') == section.sizeof():
+            if section_data.count(b'\0') == section.sizeof():
                 self.__warnings.append(
                     ('Invalid section %d. ' % i) +
                     'Contents are null-bytes.')
@@ -2399,7 +2398,7 @@ class PE:
         # Sort the sections by their VirtualAddress and add a field to each of them
         # with the VirtualAddress of the next section. This will allow to check
         # for potentially overlapping sections in badly constructed PEs.
-        self.sections.sort(cmp=lambda a,b: cmp(a.VirtualAddress, b.VirtualAddress))
+        self.sections.sort(key=lambda a: (a.VirtualAddress))
         for idx, section in enumerate(self.sections):
             if idx == len(self.sections)-1:
                 section.next_section_virtual_address = None
@@ -2527,7 +2526,7 @@ class PE:
 
             forwarder_refs = []
             # 8 is the size of __IMAGE_BOUND_IMPORT_DESCRIPTOR_format__
-            for idx in xrange( min( bnd_descr.NumberOfModuleForwarderRefs, safety_boundary/8) ):
+            for idx in range( min( bnd_descr.NumberOfModuleForwarderRefs, safety_boundary // 8) ):
                 # Both structures IMAGE_BOUND_IMPORT_DESCRIPTOR and
                 # IMAGE_BOUND_FORWARDER_REF have the same size.
                 bnd_frwd_ref = self.__unpack_data__(
@@ -2693,14 +2692,14 @@ class PE:
         try:
             data = self.get_data(data_rva, size)
             file_offset = self.get_offset_from_rva(data_rva)
-        except PEFormatError, excp:
+        except PEFormatError as excp:
             self.__warnings.append(
                 'Bad RVA in relocation data: 0x%x' % (data_rva))
             return []
 
         entries = []
         offsets_and_type = []
-        for idx in xrange( len(data) / 2 ):
+        for idx in range( len(data) // 2 ):
 
             entry = self.__unpack_data__(
                 self.__IMAGE_BASE_RELOCATION_ENTRY_format__,
@@ -2739,10 +2738,10 @@ class PE:
         dbg_size = Structure(self.__IMAGE_DEBUG_DIRECTORY_format__).sizeof()
 
         debug = []
-        for idx in xrange(size/dbg_size):
+        for idx in range(size // dbg_size):
             try:
                 data = self.get_data(rva+dbg_size*idx, dbg_size)
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Invalid debug information. Can\'t read ' +
                     'data at RVA: 0x%x' % rva)
@@ -2797,7 +2796,7 @@ class PE:
             # If the RVA is invalid all would blow up. Some EXEs seem to be
             # specially nasty and have an invalid RVA.
             data = self.get_data(rva, Structure(self.__IMAGE_RESOURCE_DIRECTORY_format__).sizeof() )
-        except PEFormatError, e:
+        except PEFormatError as e:
             self.__warnings.append(
                 'Invalid resources directory. Can\'t read ' +
                 'directory data at RVA: 0x%x' % rva)
@@ -2844,7 +2843,7 @@ class PE:
         # to be able to detect overlapping entries that might suggest
         # and invalid or corrupt directory.
         last_name_begin_end = None
-        for idx in xrange(number_of_entries):
+        for idx in range(number_of_entries):
 
             res = self.parse_resource_entry(rva)
             if res is None:
@@ -2857,7 +2856,7 @@ class PE:
             entry_name = None
             entry_id = None
 
-            name_is_string = (res.Name & 0x80000000L) >> 31
+            name_is_string = (res.Name & 0x80000000) >> 31
             if not name_is_string:
                 entry_id = res.Name
             else:
@@ -2882,7 +2881,7 @@ class PE:
 
                     strings_to_postprocess.append(entry_name)
 
-                except PEFormatError, excp:
+                except PEFormatError as excp:
                     self.__warnings.append(
                         'Error parsing the resources directory, '
                         'attempting to read entry name. '
@@ -3011,7 +3010,7 @@ class PE:
             # If the RVA is invalid all would blow up. Some EXEs seem to be
             # specially nasty and have an invalid RVA.
             data = self.get_data(rva, Structure(self.__IMAGE_RESOURCE_DATA_ENTRY_format__).sizeof() )
-        except PEFormatError, excp:
+        except PEFormatError as excp:
             self.__warnings.append(
                 'Error parsing a resource directory data entry, ' +
                 'the RVA is invalid: 0x%x' % ( rva ) )
@@ -3029,7 +3028,7 @@ class PE:
 
         try:
             data = self.get_data( rva, Structure(self.__IMAGE_RESOURCE_DIRECTORY_ENTRY_format__).sizeof() )
-        except PEFormatError, excp:
+        except PEFormatError as excp:
             # A warning will be added by the caller if this method returns None
             return None
 
@@ -3040,14 +3039,14 @@ class PE:
         if resource is None:
             return None
 
-        #resource.NameIsString = (resource.Name & 0x80000000L) >> 31
-        resource.NameOffset = resource.Name & 0x7FFFFFFFL
+        #resource.NameIsString = (resource.Name & 0x80000000) >> 31
+        resource.NameOffset = resource.Name & 0x7FFFFFFF
 
-        resource.__pad = resource.Name & 0xFFFF0000L
-        resource.Id = resource.Name & 0x0000FFFFL
+        resource.__pad = resource.Name & 0xFFFF0000
+        resource.Id = resource.Name & 0x0000FFFF
 
-        resource.DataIsDirectory = (resource.OffsetToData & 0x80000000L) >> 31
-        resource.OffsetToDirectory = resource.OffsetToData & 0x7FFFFFFFL
+        resource.DataIsDirectory = (resource.OffsetToData & 0x80000000) >> 31
+        resource.OffsetToDirectory = resource.OffsetToData & 0x7FFFFFFF
 
         return resource
 
@@ -3095,7 +3094,7 @@ class PE:
         ustr_offset = version_struct.OffsetToData + versioninfo_struct.sizeof()
         try:
             versioninfo_string = self.get_string_u_at_rva( ustr_offset )
-        except PEFormatError, excp:
+        except PEFormatError as excp:
             self.__warnings.append(
                 'Error parsing the version information, ' +
                 'attempting to read VS_VERSION_INFO string. Can\'t ' +
@@ -3106,7 +3105,7 @@ class PE:
 
         # If the structure does not contain the expected name, it's assumed to be invalid
         #
-        if versioninfo_string != u'VS_VERSION_INFO':
+        if versioninfo_string != 'VS_VERSION_INFO':
 
             self.__warnings.append('Invalid VS_VERSION_INFO block')
             return
@@ -3175,7 +3174,7 @@ class PE:
                 stringfileinfo_offset + versioninfo_struct.sizeof() )
             try:
                 stringfileinfo_string = self.get_string_u_at_rva( ustr_offset )
-            except PEFormatError, excp:
+            except PEFormatError as excp:
                 self.__warnings.append(
                     'Error parsing the version information, ' +
                     'attempting to read StringFileInfo string. Can\'t ' +
@@ -3194,7 +3193,7 @@ class PE:
 
             # Parse a StringFileInfo entry
             #
-            if stringfileinfo_string and stringfileinfo_string.startswith(u'StringFileInfo'):
+            if stringfileinfo_string and stringfileinfo_string.startswith('StringFileInfo'):
 
                 if stringfileinfo_struct.Type in (0,1) and stringfileinfo_struct.ValueLength == 0:
 
@@ -3221,7 +3220,7 @@ class PE:
                             stringtable_struct.sizeof() )
                         try:
                             stringtable_string = self.get_string_u_at_rva( ustr_offset )
-                        except PEFormatError, excp:
+                        except PEFormatError as excp:
                             self.__warnings.append(
                                 'Error parsing the version information, ' +
                                 'attempting to read StringTable string. Can\'t ' +
@@ -3256,7 +3255,7 @@ class PE:
                             try:
                                 key = self.get_string_u_at_rva( ustr_offset )
                                 key_offset = self.get_offset_from_rva( ustr_offset )
-                            except PEFormatError, excp:
+                            except PEFormatError as excp:
                                 self.__warnings.append(
                                     'Error parsing the version information, ' +
                                     'attempting to read StringTable Key string. Can\'t ' +
@@ -3272,7 +3271,7 @@ class PE:
                                 value = self.get_string_u_at_rva( ustr_offset,
                                     max_length = string_struct.ValueLength )
                                 value_offset = self.get_offset_from_rva( ustr_offset )
-                            except PEFormatError, excp:
+                            except PEFormatError as excp:
                                 self.__warnings.append(
                                     'Error parsing the version information, ' +
                                     'attempting to read StringTable Value string. ' +
@@ -3316,7 +3315,7 @@ class PE:
 
             # Parse a VarFileInfo entry
             #
-            elif stringfileinfo_string and stringfileinfo_string.startswith( u'VarFileInfo' ):
+            elif stringfileinfo_string and stringfileinfo_string.startswith( 'VarFileInfo' ):
 
                 varfileinfo_struct = stringfileinfo_struct
                 varfileinfo_struct.name = 'VarFileInfo'
@@ -3346,7 +3345,7 @@ class PE:
                             var_struct.sizeof() )
                         try:
                             var_string = self.get_string_u_at_rva( ustr_offset )
-                        except PEFormatError, excp:
+                        except PEFormatError as excp:
                             self.__warnings.append(
                                 'Error parsing the version information, ' +
                                 'attempting to read VarFileInfo Var string. ' +
@@ -3370,7 +3369,7 @@ class PE:
                                 raw_data[varword_offset+2:varword_offset+4], 0)
                             varword_offset += 4
 
-                            if isinstance(word1, (int, long)) and isinstance(word2, (int, long)):
+                            if isinstance(word1, int) and isinstance(word2, int):
                                 var_struct.entry = {var_string: '0x%04x 0x%04x' % (word1, word2)}
 
                         var_offset = self.dword_align(
@@ -3448,7 +3447,7 @@ class PE:
         else:
             safety_boundary = section.VirtualAddress + len(section.get_data()) - export_dir.AddressOfNames
 
-        for i in xrange( min( export_dir.NumberOfNames, safety_boundary/4) ):
+        for i in range( min( export_dir.NumberOfNames, safety_boundary // 4) ):
             symbol_name_address = self.get_dword_from_data(address_of_names, i)
 
             if symbol_name_address is None:
@@ -3523,7 +3522,7 @@ class PE:
 
         safety_boundary = section.VirtualAddress + len(section.get_data()) - export_dir.AddressOfFunctions
 
-        for idx in xrange( min(export_dir.NumberOfFunctions, safety_boundary/4) ):
+        for idx in range( min(export_dir.NumberOfFunctions, safety_boundary // 4) ):
 
             if not idx+export_dir.Base in ordinals:
                 try:
@@ -3560,7 +3559,7 @@ class PE:
 
 
     def dword_align(self, offset, base):
-        return ((offset+base+3) & 0xfffffffcL) - (base & 0xfffffffcL)
+        return ((offset+base+3) & 0xfffffffc) - (base & 0xfffffffc)
 
 
     def parse_delay_import_directory(self, rva, size):
@@ -3572,7 +3571,7 @@ class PE:
                 # If the RVA is invalid all would blow up. Some PEs seem to be
                 # specially nasty and have an invalid RVA.
                 data = self.get_data( rva, Structure(self.__IMAGE_DELAY_IMPORT_DESCRIPTOR_format__).sizeof() )
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the Delay import directory at RVA: 0x%x' % ( rva ) )
                 break
@@ -3603,7 +3602,7 @@ class PE:
                     import_desc.pIAT,
                     None,
                     max_length = max_len)
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the Delay import directory. ' +
                     'Invalid import data at RVA: 0x%x (%s)' % ( rva, e.value) )
@@ -3669,7 +3668,7 @@ class PE:
                 # If the RVA is invalid all would blow up. Some EXEs seem to be
                 # specially nasty and have an invalid RVA.
                 data = self.get_data(rva, Structure(self.__IMAGE_IMPORT_DESCRIPTOR_format__).sizeof() )
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the import directory at RVA: 0x%x' % ( rva ) )
                 break
@@ -3698,7 +3697,7 @@ class PE:
                     import_desc.FirstThunk,
                     import_desc.ForwarderChain,
                     max_length = max_len)
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the import directory. ' +
                     'Invalid Import data at RVA: 0x%x (%s)' % ( rva, e.value ) )
@@ -3758,7 +3757,7 @@ class PE:
         #
         #imports_section = self.get_section_by_rva(first_thunk)
         #if not imports_section:
-        #    raise PEFormatError, 'Invalid/corrupt imports.'
+        #    raise PEFormatError('Invalid/corrupt imports.')
 
         # Import Lookup Table. Contains ordinals or pointers to strings.
         ilt = self.get_import_table(original_first_thunk, max_length)
@@ -3790,10 +3789,10 @@ class PE:
         elif self.PE_TYPE == OPTIONAL_HEADER_MAGIC_PE_PLUS:
             ordinal_flag = IMAGE_ORDINAL_FLAG64
             imp_offset = 8
-            address_mask = 0x7fffffffffffffffL
+            address_mask = 0x7fffffffffffffff
 
         num_invalid = 0
-        for idx in xrange(len(table)):
+        for idx in range(len(table)):
 
             imp_ord = None
             imp_hint = None
@@ -3822,7 +3821,7 @@ class PE:
                             imp_name = '*invalid*'
 
                         name_offset = self.get_offset_from_rva(table[idx].AddressOfData+2)
-                    except PEFormatError, e:
+                    except PEFormatError as e:
                         pass
 
                 # by nriva: we want the ThunkRVA and ThunkOffset
@@ -3931,7 +3930,7 @@ class PE:
             failed = False
             try:
                 data = self.get_data(rva, Structure(format).sizeof())
-            except PEFormatError, e:
+            except PEFormatError as e:
                 failed = True
 
             if failed or len(data) != Structure(format).sizeof():
@@ -4076,7 +4075,7 @@ class PE:
                     for resource_id in resource_type.directory.entries:
                         if hasattr(resource_id, 'directory'):
                             if hasattr(resource_id.directory, 'strings') and resource_id.directory.strings:
-                                for res_string in resource_id.directory.strings.values():
+                                for res_string in list(resource_id.directory.strings.values()):
                                     resources_strings.append( res_string )
 
         return resources_strings
@@ -4112,7 +4111,7 @@ class PE:
             if rva < len(self.__data__):
                 return self.__data__[rva:end]
 
-            raise PEFormatError, 'data at RVA can\'t be fetched. Corrupt header?'
+            raise PEFormatError('data at RVA can\'t be fetched. Corrupt header?')
 
         return s.get_data(rva, length)
 
@@ -4157,7 +4156,7 @@ class PE:
             if rva<len(self.__data__):
                 return rva
 
-            raise PEFormatError, 'data at RVA can\'t be fetched. Corrupt header?'
+            raise PEFormatError('data at RVA can\'t be fetched. Corrupt header?')
 
         return s.get_offset_from_rva(rva)
 
@@ -4182,7 +4181,7 @@ class PE:
         b = None
 
         try:
-            b = data[offset]
+            b = chr(data[offset])
         except IndexError:
             return ''
 
@@ -4191,7 +4190,7 @@ class PE:
             s += b
             offset += 1
             try:
-                b = data[offset]
+                b = chr(data[offset])
             except IndexError:
                 break
 
@@ -4205,19 +4204,19 @@ class PE:
             # If the RVA is invalid all would blow up. Some EXEs seem to be
             # specially nasty and have an invalid RVA.
             data = self.get_data(rva, 2)
-        except PEFormatError, e:
+        except PEFormatError as e:
             return None
 
-        s = u''
-        for idx in xrange(max_length):
+        s = ''
+        for idx in range(max_length):
             try:
                 uchr = struct.unpack('<H', self.get_data(rva+2*idx, 2))[0]
             except struct.error:
                 break
 
-            if unichr(uchr) == u'\0':
+            if chr(uchr) == '\0':
                 break
-            s += unichr(uchr)
+            s += chr(uchr)
 
         return s
 
@@ -4249,7 +4248,7 @@ class PE:
 
     def print_info(self):
         """Print all the PE header information in a human readable from."""
-        print self.dump_info()
+        print(self.dump_info())
 
 
     def dump_info(self, dump=None):
@@ -4332,7 +4331,7 @@ class PE:
             hasattr(self.OPTIONAL_HEADER, 'DATA_DIRECTORY') ):
 
             dump.add_header('Directories')
-            for idx in xrange(len(self.OPTIONAL_HEADER.DATA_DIRECTORY)):
+            for idx in range(len(self.OPTIONAL_HEADER.DATA_DIRECTORY)):
                 directory = self.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
                 dump.add_lines(directory.dump())
             dump.add_newline()
@@ -4366,7 +4365,7 @@ class PE:
                             [dump.add_line('  '+line) for line in st_entry.dump()]
                             dump.add_line('  LangID: '+st_entry.LangID)
                             dump.add_newline()
-                            for str_entry in st_entry.entries.items():
+                            for str_entry in list(st_entry.entries.items()):
                                 dump.add_line( '    ' +
                                     convert_to_printable(str_entry[0]) + ': ' +
                                     convert_to_printable(str_entry[1]) )
@@ -4378,8 +4377,8 @@ class PE:
                                 [dump.add_line('  '+line) for line in var_entry.dump()]
                                 dump.add_line(
                                     '    ' +
-                                    convert_to_printable(var_entry.entry.keys()[0]) +
-                                    ': ' + var_entry.entry.values()[0])
+                                    convert_to_printable(list(var_entry.entry.keys())[0]) +
+                                    ': ' + list(var_entry.entry.values())[0])
 
                         dump.add_newline()
 
@@ -4506,7 +4505,7 @@ class PE:
                                     dump.add_lines(resource_lang.data.struct.dump(), 12)
                             if hasattr(resource_id.directory, 'strings') and resource_id.directory.strings:
                                 dump.add_line( '[STRINGS]' , 10 )
-                                for idx, res_string in resource_id.directory.strings.items():
+                                for idx, res_string in list(resource_id.directory.strings.items()):
                                     dump.add_line( '%6d: %s' % (idx, convert_to_printable(res_string) ), 12 )
 
                 dump.add_newline()
@@ -4618,7 +4617,7 @@ class PE:
 
             dump_dict['Directories'] = list()
 
-            for idx in xrange(len(self.OPTIONAL_HEADER.DATA_DIRECTORY)):
+            for idx in range(len(self.OPTIONAL_HEADER.DATA_DIRECTORY)):
                 directory = self.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
                 dump_dict['Directories'].append(directory.dump_dict())
 
@@ -4648,7 +4647,7 @@ class PE:
                         for st_entry in entry.StringTable:
                             [fileinfo_list.append(line) for line in st_entry.dump_dict()]
                             stringtable_dict['LangID'] = st_entry.LangID
-                            for str_entry in st_entry.entries.items():
+                            for str_entry in list(st_entry.entries.items()):
                                 stringtable_dict[convert_to_printable(str_entry[0])] = convert_to_printable(str_entry[1])
                         fileinfo_list.append(stringtable_dict)
 
@@ -4658,7 +4657,7 @@ class PE:
                             var_dict = dict()
                             if hasattr(var_entry, 'entry'):
                                 [fileinfo_list.append(line) for line in var_entry.dump_dict()]
-                                var_dict[convert_to_printable(var_entry.entry.keys()[0])] = var_entry.entry.values()[0]
+                                var_dict[convert_to_printable(list(var_entry.entry.keys())[0])] = list(var_entry.entry.values())[0]
                                 fileinfo_list.append(var_dict)
 
 
@@ -4779,7 +4778,7 @@ class PE:
                                     resource_lang_dict.update(resource_lang.data.struct.dump_dict())
                                     resource_id_list.append(resource_lang_dict)
                             if hasattr(resource_id.directory, 'strings') and resource_id.directory.strings:
-                                for idx, res_string in resource_id.directory.strings.items():
+                                for idx, res_string in list(resource_id.directory.strings.items()):
                                     resource_id_list.append(convert_to_printable(res_string))
 
 
@@ -5012,9 +5011,8 @@ class PE:
         Return True if successful, False otherwise. It can fail if the
         offset is outside the file's boundaries.
         """
-
-        if not isinstance(data, str):
-            raise TypeError('data should be of type: str')
+        if not isinstance(data, bytes):
+            raise TypeError('data should be of type: bytes')
 
         offset = self.get_physical_by_rva(rva)
         if not offset:
@@ -5030,8 +5028,8 @@ class PE:
         offset is outside the file's boundaries.
         """
 
-        if not isinstance(data, str):
-            raise TypeError('data should be of type: str')
+        if not isinstance(data, bytes):
+            raise TypeError('data should be of type: bytes')
 
         if offset >= 0 and offset < len(self.__data__):
             self.__data__ = ( self.__data__[:offset] + data + self.__data__[offset+len(data):] )
@@ -5169,11 +5167,11 @@ class PE:
         remainder = len(self.__data__) % 4
         data_len = len(self.__data__) + ((4-remainder) * ( remainder != 0 ))
 
-        for i in xrange( data_len / 4 ):
+        for i in range( data_len // 4 ):
             # Skip the checksum field
-            if i == checksum_offset / 4:
+            if i == checksum_offset // 4:
                 continue
-            if i+1 == (data_len / 4) and remainder:
+            if i+1 == (data_len // 4) and remainder:
                 dword = struct.unpack('I', self.__data__[i*4:]+ ('\0' * (4-remainder)) )[0]
             else:
                 dword = struct.unpack('I', self.__data__[ i*4 : i*4+4 ])[0]
@@ -5325,7 +5323,7 @@ class PE:
 
         if file_alignment < FILE_ALIGNEMNT_HARDCODED_VALUE:
             return val
-        return (val / 0x200) * 0x200
+        return (val // 0x200) * 0x200
 
 
     # According to the document:
@@ -5353,6 +5351,6 @@ class PE:
         #    section_alignment = 0x80
 
         if section_alignment and val % section_alignment:
-            return section_alignment * ( val / section_alignment )
+            return section_alignment * ( val // section_alignment )
         return val
 

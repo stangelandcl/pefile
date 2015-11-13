@@ -1,6 +1,7 @@
 # pefile
 
 Converted to Python 3 by Clayton Stangeland
+with help from Jang Hyun-seung via https://github.com/BlackXeronic/pefile_py3
 
 
 _pefile_ is a multi-platform Python module to parse and work with [Portable Executable (aka PE) files](http://en.wikipedia.org/wiki/Portable_Executable). Most of the information contained in the PE headers is accessible as well as all sections' details and their data.
