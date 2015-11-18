@@ -18,6 +18,10 @@ All rights reserved.
 
 For detailed copyright information see the file COPYING in
 the root of the distribution archive.
+
+Updated to python3 and package renamed to pefile3 by Clayton Stangeland. 
+Source code at https://github.com/stangelandcl/pefile
+
 """
 
 __revision__ = 0
